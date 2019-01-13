@@ -20,6 +20,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 	switch ($error) {
 		case UPLOAD_ERR_OK:
 			$valid = true;
+		
+				
 			//validate file extensions
 			if ( !in_array($ext, array('xlsx')) ) {
 				$valid = false;
@@ -36,9 +38,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 				move_uploaded_file($tmpName,$targetPath);
 				$_GET['file'] = $name;
 				require_once('data.php');
-				$a = array();
-				$a['response'] = $response;
-				echo json_encode($a);
+				//$a = array();
+				//$a['response'] = $response;
+				//echo json_encode($a);
 				exit;
 			}
 			break;

@@ -19,7 +19,7 @@ $( document ).ready(function() {
   $('#upload').on('click', UploadFile);
   $('#reload').on('click', Load);
   $('#logout').on('click', Logout);
-	
+
 
 })
 function Logout()
@@ -88,6 +88,8 @@ function Load()
 	console.log(report_year);
 	console.log(report_month);
 	GetResource(0,'src/data.php',params,successcb);
+	
+	  
 }
 function ShowCloseTaskError(errors)
 {
@@ -114,8 +116,18 @@ function UploadFile()
 		success: function (response) {
 			console.log('success'); // display success response from the PHP script
 			console.log(response);
-			window.location.href = 'index.php';
-			setTimeout( function(){ waitingDialog.hide();}, 2000 );
+			var response = JSON.parse(response);
+			
+			//
+			//setTimeout( function(){ waitingDialog.hide();}, 2000 );
+			if(response.status == 'FAIL')
+			{
+				waitingDialog.hide();
+				setTimeout( function(){ alert(response.message);}, 100 );
+				return;
+			}
+			else
+				window.location.href = 'index.php';
 		},
 		error: function (response) {
 			console.log('error'); // display error response from the PHP script
@@ -167,6 +179,18 @@ function GetAttendanceData(employee,datestr)
 	}
 	return attendancedata;
 }
+function AppendLegend()
+{
+	i=0;
+	var html_this='';
+	html_this ='<span class="badge badge-Info">Holidays</span>';
+	html_this +='&nbsp<span class="badge badge-Secondary">Working</span>';
+	html_this +='&nbsp<span class="badge badge-danger">Missing</span>';
+	html_this +='&nbsp<span class="badge badge-warning">Partial</span>';
+	html_this +='&nbsp<span class="badge badge-primary">FTO</span>';
+	
+	return html_this;
+}
 function AppendDataList(start,end,employee)
 {
 	var offday=0;
@@ -196,16 +220,29 @@ function AppendDataList(start,end,employee)
 		attendancedata = GetAttendanceData(employee,reportyear+'-'+reportmonth+'-'+i);
 		if(attendancedata == null)
 		{
-
-			if(offday==0)
+			found= 0;
+			for(var m=0;m<employee.appliedftos.length;m++)
 			{
-				html_this='<li><span class="badge badge-danger">'+i+'</span>';
-				//html_this +='<span>No data</span>';
+				if(employee.appliedftos[m] == reportyear+'-'+reportmonth+'-'+i)
+				{
+					if(offday==0)
+					{
+						html_this='<li><span class="badge badge-primary">'+i+'</span>';
+						found=1;
+						//html_this +='<span>No data</span>';
+					}
+					//console.log(employee.appliedftos[m]+"Aplied Fto");
+				}
+
 			}
-			
-			//console.log(employee.name);
-			//console.log(reportyear+'-'+reportmonth+'-'+i);
-			//console.log(offday);
+			if(found==0)
+			{
+				if(offday==0)
+				{
+					html_this='<li><span class="badge badge-danger">'+i+'</span>';
+					//html_this +='<span>No data</span>';
+				}
+			}
 		}
 		else 
 		{	
@@ -215,19 +252,28 @@ function AppendDataList(start,end,employee)
 				//console.log(employee.name);
 				html_this ='<li><span class="badge badge-warning">'+i+'</span>';
 			}
-			html_this += '<span style="font-size:10px;">  '+attendancedata.duration.slice(0,5)+'</span>'
+			html_this += '<span style="font-size:15px;">&nbsp<img width="10" src="assets/images/green-arrow-in.png">'+attendancedata.timein.slice(0,5)+'&nbsp<img width="10" src="assets/images/red-arrow-out.png">'+attendancedata.timeout.slice(0,5)+'&nbsp<img width="10" src="assets/images/d.jpg">'+attendancedata.duration.slice(0,5)+'</span>'
 		}
 		html_this +='</li>';
 		html += html_this;
 	}
-
-	
 	return html;
 }
-
+function ConvertJsDateFormat(datestr)
+{
+	var d = new Date(datestr);
+	if(d == 'Invalid Date')
+		return '';
+	
+	dateString = d.toUTCString();
+	dateString = dateString.split(' ').slice(0, 4).join(' ').substring(5);
+	return dateString;
+}
 function successcb(response)
 {
 	var response = JSON.parse(response);
+	console.log(response);
+	
 	holidays = response[1];
 	report_date = new Date(response[0]);
 	console.log(report_date);
@@ -240,15 +286,22 @@ function successcb(response)
 	daysinmonth = daysInMonth(report_date.getUTCMonth()+1,report_date.getUTCFullYear());
 	$("#container").empty();
 	
-	//console.log(holidays);
-	//console.log(report_datess);
+	
+	console.log(holidays);
+	$('#holidays').empty();
+	for(var prop in holidays) {
+		$('#holidays').append('<p>'+ConvertJsDateFormat(prop)+'-'+holidays[prop]+'</p>');
+		console.log(prop);
+		console.log(holidays[prop]);
+	}
 	
 	table = '<table class="table table-hover table-expandable table-sticky-header">';
 	table += '<thead>';
 	table += '<tr>';
 		table +='<th style="width: 20%">Name</th>';
-		table +='<th style="width: 20%">Missing</th>';
-		table +='<th style="width: 20%">Partial</th>';
+		table +='<th style="width: 15%">Missing</th>';
+		table +='<th style="width: 15%">Partial</th>';
+		table +='<th style="width: 15%">FTO</th>';
 		table +='<th style="width: 15%">In Time</th>';
 		table +='<th style="width: 15%">Out Time</th>';
 		table +='<th style="width: 20%">Duration</th>';
@@ -261,7 +314,7 @@ function successcb(response)
 	{
 		var manager = response[i];
 
-		var heading  = '<nav class="navbar navbar-light bg-light"><a class="navbar-brand" href="#"><strong>Team '+manager.name+'</strong></a></nav>';
+		var heading  = '<nav id="nav" class="navbar navbar-light bg-light"><a class="navbar-brand" href="#"><strong>Team '+manager.name+'</strong></a></nav>';
 		//heading  += '<div class="alert alert-primary">'+
 		//	heading  += '<span class="fa fa-gift mr-1"></span>'+
 		//		Checkout out my full collection of<a href="/" class="alert-link">Bootstrap themes and templates</a></div></div>';
@@ -269,12 +322,16 @@ function successcb(response)
 		
 		//var heading  = '<p>Manager <a href="#">'+manager.name+'</a></p>'; 
 		$("#container").append(heading);
+	
 		var employees = manager.employees;
+		
 		for (var j = 0; j < employees.length; j++)
 		{
 			//console.log(employees[j]);
+			var fto = [];
 			var employeename = employees[j].name;
 			var ftocount =  employees[j].fto.length;
+			var appliedftoscount = employees[j].appliedftos.length;
 			var missing =  employees[j].attendancemissing;
 			var averagein = employees[j].averagein.slice(0,5);
 			var averageout = employees[j].averageout.slice(0,5); 
@@ -283,9 +340,37 @@ function successcb(response)
 				averagedur = '00:00';
 			else
 				var averagedur = employees[j].averageduration.slice(0,5); 
+			
+			console.log(employeename);
+			console.log(ftocount);
+		
+			for (var k = 0; k < employees[j].fto.length; k++) 
+			{
+				found=0;
+				for (var l = 0; l < employees[j].appliedftos.length; l++) 
+				{
+					if( employees[j].appliedftos[l] == employees[j].fto[k])
+					{
+						//ftocount--;
+						found=1;
+						break;
+					}
+				}
+				if(found == 0)
+				    fto[fto.length] = employees[j].fto[k];
+			}
+			console.log('UnUpdated Fto');
+			console.log(employees[j].fto);
+			employees[j].fto = fto;
+
+			ftocount =  employees[j].fto.length;
+			console.log(employees[j].appliedftos);
+			console.log('Updated Fto');
+			console.log(employees[j].fto);
+			console.log(ftocount);
+			
 			var table;
 			table = '<table id="attendance" class="table table-hover table-expandable table-sticky-header">';
-				
 				table +='<tbody>';
 					table +='<tr>';
 						table +='<td style="width: 20%">'+employeename+'</td>';
@@ -294,49 +379,63 @@ function successcb(response)
 						else
 							badge='';
 						
-						table +='<td style="width: 20%">'+badge+'</td>';
+						table +='<td style="width: 15%">'+badge+'</td>';
 						if(missing > 0)
 							badge='<a href="#"> <span class="badge badge-Warning">'+missing+'</span></a>';
 						else
 							badge = '';
-						table +='<td style="width: 20%">'+badge+'</td>';
+						table +='<td style="width: 15%">'+badge+'</td>';
+						
+						if(appliedftoscount > 0)
+							badge='<a href="#"> <span class="badge badge-primary">'+appliedftoscount+'</span></a>';
+						else
+							badge='';
+						
+						table +='<td style="width: 15%">'+badge+'</td>';
+						
 						
 						table +='<td style="width: 15%">'+averagein+'</td>';
 						table +='<td style="width: 15%">'+averageout+'</td>';
 						table +='<td style="width: 20%">'+averagedur+' Hours</td>';
 					table +='</tr>';
 					table +='<tr style="display: none;">';
-						table +='<td colspan="5">';
+						table +='<td colspan="7">';
 							table +='<p>Manager '+manager.name+'</p>';
+							
 							table +='<div class="row">';
-							table +='<div class="col-sm">';
-							table +='<ul">';
-								table +=AppendDataList(1,8,employees[j]);
-							table +='</ul>';
-							table +='</div>';
+								table +='<div class="col-sm w-10" >';
+								table +='<ul">';
+									table +=AppendDataList(1,8,employees[j]);
+								table +='</ul>';
+								table +='</div>';
 							
-							table +='<div class="col-sm">';
-							table +='<ul">';
-								table +=AppendDataList(9,16,employees[j]);
-							table +='</ul>';
-							table +='</div>';
+								table +='<div class="col-sm">';
+								table +='<ul">';
+									table +=AppendDataList(9,16,employees[j]);
+								table +='</ul>';
+								table +='</div>';
 							
-							table +='<div class="col-sm">';
-							table +='<ul">';
-								table +=AppendDataList(17,24,employees[j]);
-							table +='</ul>';
-							table +='</div>';
+								table +='<div class="col-sm">';
+								table +='<ul">';
+									table +=AppendDataList(17,24,employees[j]);
+								table +='</ul>';
+								table +='</div>';
 							
-							table +='<div class="col-sm">';
-							table +='<ul">';
-								table +=AppendDataList(25,daysinmonth,employees[j]);
-							table +='</ul>';
-							table +='</div>';
+								table +='<div class="col-sm">';
+								table +='<ul">';
+									table +=AppendDataList(25,daysinmonth,employees[j]);
+								table +='</ul>';
+								table +='</div>';
 							
+							table +='</div>';
+							table +='<div class="row">';
+							table +='&nbsp';
+							table +='</div>';
+							table +='<div class="row">';
+							table +='&nbsp&nbsp&nbsp&nbsp&nbsp'+AppendLegend();
 							table +='</div>';
 						table +='</td>';
 					table +='</tr>';
-	
 				table +='</tbody>';
 			table +='</table>';
 			$("#container").append(table);

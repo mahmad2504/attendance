@@ -27,7 +27,9 @@ if (!isset($_SESSION['access_token'])) {
 	exit();
 }
 
-
+//LoadData('PK02 Absence Report 123118_Sent 010219.xlsx');
+//LoadData('Lahore Attendance Report-dec.xlsx');
+//return;
 
 if(isset($_GET['year'])&&isset($_GET['month']))
 {
@@ -73,7 +75,6 @@ else if(isset($_GET['file']))
 		$result->status = 'FAIL';
 		$result->error = "Data Not Found";
 		echo json_encode($result);
-		return;
 	}
 }
 else
@@ -94,14 +95,151 @@ else
 }
 
 
+
 function LoadData($file)
 {
 	global $inst;
+
+	/*$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader("Xlsx");
+	$spreadsheet = $reader->load($file);
+	$sheetData = $spreadsheet->getActiveSheet()->toArray();*/
+
+	$retval = LoadInstance($file);
+	//var_dump($inst);
+	
+	if($retval == 1)
+		LoadEntryExitData($file);
+	
+	else if($retval == 2)
+		LoadFTORecord($file);
+	
+	else
+	{
+		$a =  new StdClass();
+		$a->status = 'FAIL';
+		$a->message = 'Please Upload Attendance Data First';
+		echo json_encode($a);
+		exit();
+	}
+	
+	//var_dump($inst);
+	
+	/*if($sheetData[0][0] == 'Lahore Monthly Attendance Report')
+	{
+		LoadEntryExitData($file);
+	}
+	
+	if($sheetData[0][0] == 'Name of employee or applicant')
+		LoadFTORecord($file);*/
+}
+function LoadInstance($file)
+{
+	global $inst;
+	$loaded =  false;
+	$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader("Xlsx");
+	$spreadsheet = $reader->load($file);
+	$sheetData = $spreadsheet->getActiveSheet()->toArray();
+	if($sheetData[0][0] == 'Lahore Monthly Attendance Report')
+		return 1;
+
+	else if($sheetData[0][0] == 'Name of employee or applicant')
+	{
+		foreach($sheetData as $data)
+		{
+			$bool = ( !is_int($data[18]) ? (ctype_digit($data[18])) : true );
+			if( $bool)
+			{
+				$date  = $data[2];
+				$infolder =  DateTime::createFromFormat("m/d/Y", $date)->format("Y");
+				$infile = DateTime::createFromFormat("m/d/Y", $date)->format("M");
+
+				if(file_exists(DATABASE_FOLDER.'/'.$infolder."/".$infile))
+				{
+					//echo "Loading Instance";
+					$inst = unserialize(file_get_contents(DATABASE_FOLDER.'/'.$infolder."/".$infile));
+					return 2;
+				}
+				return -1;
+				//else
+				//{
+				//	$inst->report_month = DateTime::createFromFormat("m/d/Y", $date)->format("Y-m-d");
+				//}
+				
+			}
+		}
+	}
+}
+function LoadFTORecord($file)
+{
+	global $inst;
+
+	$loaded =  false;
+	$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader("Xlsx");
+	$spreadsheet = $reader->load($file);
+	$sheetData = $spreadsheet->getActiveSheet()->toArray();
+	//var_dump($sheetData);
+	
+	foreach($sheetData as $data)
+	{
+		$bool = ( !is_int($data[18]) ? (ctype_digit($data[18])) : true );
+		if( $bool)
+		{
+			//echo "-->". $data[1]." ".$data[2]." ".$data[5].'<BR>';
+			$badgeno = $data[1];
+			$date  = $data[2];
+		
+			$hours = $data[5];
+			if(array_key_exists($badgeno,$inst->employees))
+			{
+				$employee = $inst->employees[$badgeno];
+				$employee->appliedftos = array();
+			}
+		}
+	}
+	
+	
+	
+	foreach($sheetData as $data)
+	{
+		//echo $data[1]." ".$data[5].'<BR>';
+		
+		$bool = ( !is_int($data[18]) ? (ctype_digit($data[18])) : true );
+		
+		if( $bool)
+		{
+			//echo "-->". $data[1]." ".$data[2]." ".$data[5].'<BR>';
+			$badgeno = $data[1];
+			$date  = $data[2];
+		
+			$hours = $data[5];
+			if(array_key_exists($badgeno,$inst->employees))
+			{
+				$employee = $inst->employees[$badgeno];
+				if($hours >= 8)
+				{
+					$date = DateTime::createFromFormat('m/d/Y', $date);
+					$employee->appliedftos[] = $date->format('Y-m-d');
+				}
+			}
+		}
+	}
+	$folder = DateTime::createFromFormat("Y-m-d", $inst->report_month)->format("Y");
+	$file = DateTime::createFromFormat("Y-m-d", $inst->report_month)->format("M");
+	
+	//echo $folder.$file."<br>";
+	$path = DATABASE_FOLDER."/".$folder;
+	if (!file_exists($path)) 
+		mkdir($path, 0777, true);
+	
+	file_put_contents($path."/".$file,serialize($inst));
+
+}
+function LoadEntryExitData($file)
+{
 	global $inst;
 	$reader = \PhpOffice\PhpSpreadsheet\IOFactory::createReader("Xlsx");
 	$spreadsheet = $reader->load($file);
 	$sheetData = $spreadsheet->getActiveSheet()->toArray();
-	
 	
 	foreach($sheetData as $data)
 	{
@@ -177,6 +315,7 @@ function LoadData($file)
 				$employee = new StdClass();
 				$employee->name = $name;
 				$employee->attendance = array();
+				$employee->appliedftos = array();
 				$inst->employees[$badgeno] = $employee;
 			}
 			$attendance =  new StdClass();	
@@ -272,12 +411,8 @@ if(array_key_exists($employee->name,$inst->managers))
 	GetManagersData($manager);
 }
 echo json_encode($a);
-	return;
-	
-
-
-
 return;
+
 PrintManagersData($inst->managers);
 
 
@@ -309,6 +444,7 @@ function GetManagersData($manager)
 				}
 			}
 			$e->fto = $fto;
+			$e->appliedftos = $employee->appliedftos;
 			foreach($employee->attendance as $date=>$attendance)
 			{
 				if($attendance != null)
@@ -364,6 +500,7 @@ function GetEmployeeData($employee)
 		}
 	}
 	$e->fto = $fto;
+	$e->appliedftos = $employee->appliedftos; 
 	foreach($employee->attendance as $date=>$attendance)
 	{
 		if($attendance != null)
@@ -422,6 +559,7 @@ function GetAllData($managers)
 				}
 			}
 			$e->fto = $fto;
+			$e->appliedftos = $employee->appliedftos; 
 			foreach($employee->attendance as $date=>$attendance)
 			{
 				if($attendance != null)

@@ -97,6 +97,7 @@ function ReadDirectory($directory,$lookfordir=0)
 		<script src="assets/js/bs-custom-file-input.min.js"></script>
 		<script src="assets/js/jquery.ajaxfileupload"></script>
 		<script src="assets/js/bootstrap-waitingfor.js"></script>
+		<script src="assets/js/font-awesone.js"></script>
 		<script>
 		var userid = <?php echo $_SESSION['userid']; ?>;
 		var admin = <?php echo $_SESSION['admin']; ?>;
@@ -137,7 +138,6 @@ function ReadDirectory($directory,$lookfordir=0)
 				</div>
 				<div class="col-lg-6">
 					<button id="logout" type="button" class="btn btn-outline-success float-right">Logout</button>
-					
 				</div>
 			</div>
 			<hr/>
@@ -168,10 +168,23 @@ function ReadDirectory($directory,$lookfordir=0)
 				</div>
 			</div>
 		
+			<div id="holidays">
+			</div>
 		
 			<div id="container">
 			</div>
 	</div>
-
+	
+	
+	<hr/>
+	<footer class="footer">
+       <div class="container text-center">
+        <span class="text-muted" style="font-size:10px">Comments and suggestions </span>
+		<a href="mailto:mumtaz_ahmad@mentor.com">
+		<i class="fa fa-envelope fa-1x" ></i>
+		</a>
+		<span class="text-muted" style="font-size:10px">mumtaz_ahmad@mentor.com</span>
+      </div>
+    </footer>
     </body>
 </html>
